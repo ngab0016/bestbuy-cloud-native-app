@@ -1,0 +1,405 @@
+#algonquin-pet-store-all-in-one.yaml
+
+# MongoDB StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+spec:
+  serviceName: mongodb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:latest
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: "admin"
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: "password"
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+
+---
+# MongoDB Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+spec:
+  selector:
+    app: mongodb
+  clusterIP: None
+  ports:
+    - port: 27017
+      targetPort: 27017
+
+---
+# PersistentVolumeClaim for RabbitMQ 
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# RabbitMQ Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management
+          ports:
+            - containerPort: 5672
+            - containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: "myuser"
+            - name: RABBITMQ_DEFAULT_PASS
+              value: "mypassword"
+          volumeMounts:
+            - name: rabbitmq-storage
+              mountPath: /var/lib/rabbitmq
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: rabbitmq-storage
+          persistentVolumeClaim:
+            claimName: rabbitmq-data
+
+---
+# RabbitMQ Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+
+---
+# Order Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: darkxnight/order-service-l8:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: RABBITMQ_CONNECTION_STRING
+              value: "amqp://myuser:mypassword@rabbitmq:5672/"
+            - name: MONGODB_CONNECTION_STRING
+              value: "mongodb://admin:password@mongodb:27017/orderdb?authSource=admin"
+            - name: PORT
+              value: "3000"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+---
+# Order Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+spec:
+  selector:
+    app: order-service
+  ports:
+    - port: 3000
+      targetPort: 3000
+
+---
+# Product Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+    spec:
+      containers:
+        - name: product-service
+          image: darkxnight/product-service-l8:latest
+          ports:
+            - containerPort: 3030
+          env:
+            - name: MONGODB_CONNECTION_STRING
+              value: "mongodb://admin:password@mongodb:27017/productdb?authSource=admin"
+            - name: PORT
+              value: "3030"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+---
+# Product Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+spec:
+  selector:
+    app: product-service
+  ports:
+    - port: 3030
+      targetPort: 3030
+
+---
+# Store Front (Frontend) Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: store-front
+  template:
+    metadata:
+      labels:
+        app: store-front
+    spec:
+      containers:
+        - name: store-front
+          image: darkxnight/store-front-l8:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: ORDER_SERVICE_URL
+              value: "http://order-service:3000"
+            - name: PRODUCT_SERVICE_URL
+              value: "http://product-service:3030"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+---
+# Store Front Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: store-front
+spec:
+  selector:
+    app: store-front
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+
+---
+# Store Admin Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: store-admin
+  template:
+    metadata:
+      labels:
+        app: store-admin
+    spec:
+      containers:
+        - name: store-admin
+          image: darkxnight/store-admin-l8:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: ORDER_SERVICE_URL
+              value: "http://order-service:3000"
+            - name: PRODUCT_SERVICE_URL
+              value: "http://product-service:3030"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+---
+# Store Admin Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: store-admin
+spec:
+  selector:
+    app: store-admin
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+
+---
+# Makeline Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: makeline-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: makeline-service
+  template:
+    metadata:
+      labels:
+        app: makeline-service
+    spec:
+      containers:
+        - name: makeline-service
+          image: darkxnight/makeline-service-l8:latest
+          env:
+            - name: RABBITMQ_CONNECTION_STRING
+              value: "amqp://myuser:mypassword@rabbitmq:5672/"
+            - name: MONGODB_CONNECTION_STRING
+              value: "mongodb://admin:password@mongodb:27017/makelinedb?authSource=admin"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+---
+# AI Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-service
+  template:
+    metadata:
+      labels:
+        app: ai-service
+    spec:
+      containers:
+        - name: ai-service
+          image: darkxnight/ai-service-l8:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: PORT
+              value: "5000"
+            - name: MONGODB_CONNECTION_STRING
+              value: "mongodb://admin:password@mongodb:27017/aidb?authSource=admin"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+---
+# AI Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-service
+spec:
+  selector:
+    app: ai-service
+  ports:
+    - port: 5000
+      targetPort: 5000

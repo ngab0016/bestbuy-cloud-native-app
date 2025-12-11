@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"name":"makeline-service","namespace":"default"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"makeline-service"}},"template":{"metadata":{"labels":{"app":"makeline-service"}},"spec":{"containers":[{"env":[{"name":"RABBITMQ_CONNECTION_STRING","value":"amqp://myuser:mypassword@rabbitmq:5672/"},{"name":"MONGODB_CONNECTION_STRING","value":"mongodb://admin:password@mongodb:27017/makelinedb?authSource=admin"}],"image":"darkxnight/makeline-service-l8:latest","name":"makeline-service","resources":{"limits":{"cpu":"200m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}}]}}}}
+  creationTimestamp: "2025-12-10T21:43:47Z"
+  generation: 3
+  name: makeline-service
+  namespace: default
+  resourceVersion: "35310"
+  uid: 05930b12-56e3-4621-b5cf-cba87a116e8e
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: makeline-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: makeline-service
+    spec:
+      containers:
+      - env:
+        - name: RABBITMQ_CONNECTION_STRING
+          value: amqp://myuser:mypassword@rabbitmq:5672/
+        - name: MONGODB_CONNECTION_STRING
+          value: mongodb://admin:password@mongodb:27017/makelinedb?authSource=admin
+        - name: ORDER_DB_URI
+          value: mongodb://admin:password@mongodb:27017
+        - name: ORDER_DB_NAME
+          value: orders
+        - name: ORDER_DB_COLLECTION_NAME
+          value: orders
+
+        image: darkxnight/makeline-service-l8:latest
+        imagePullPolicy: Always
+        name: makeline-service
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  conditions:
+  - lastTransitionTime: "2025-12-10T22:51:32Z"
+    lastUpdateTime: "2025-12-10T22:51:32Z"
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: "False"
+    type: Available
+  - lastTransitionTime: "2025-12-10T23:35:17Z"
+    lastUpdateTime: "2025-12-10T23:35:17Z"
+    message: ReplicaSet "makeline-service-6fd7bbc496" has timed out progressing.
+    reason: ProgressDeadlineExceeded
+    status: "False"
+    type: Progressing
+  observedGeneration: 3
+  replicas: 2
+  unavailableReplicas: 2
+  updatedReplicas: 1
