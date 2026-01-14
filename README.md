@@ -200,19 +200,12 @@ Code Push → GitHub Actions → Build Image → Run Tests → Push to Docker Hu
 
 **Watch the full demonstration**: https://youtu.be/FuPlzp8bbx0
 
-**Video Contents:**
-- 00:00 - Introduction & Architecture Overview
-- 03:00 - Application Demo (Customer & Admin)
-- 08:00 - CI/CD Pipeline Demonstration
-- 12:00 - Scalability & Resilience Features
-- 14:00 - Conclusion & Future Enhancements
-
 ---
 
 ## 👨‍💻 Contributors
 
 - **Your Name** - Full-Stack Cloud-Native Developer
-- **Student ID**: Your ID
+- **Student ID**: 041196196
 - **Course**: CST8915 - Full-stack Cloud-native Development
 - **Institution**: Algonquin College
 
